@@ -31,7 +31,8 @@ Chart.Bands = Chart.Bands || {};
 
 defaultOptions = Chart.Bands.defaults = {
     bands: {
-        yValue: false,
+        yValueMin: false,
+        yValueMax: false,
         bandLine: {
             stroke: 0.01,
             colour: 'rgba(0, 0, 0, 1.000)',
@@ -41,35 +42,43 @@ defaultOptions = Chart.Bands.defaults = {
             fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
             fontStyle: 'normal'
         },
-        belowThresholdColour: [
+        belowMinThresholdColour: [
+            'rgba(0, 255, 0, 1.000)'
+        ],
+        aboveMaxThresholdColour: [
             'rgba(0, 255, 0, 1.000)'
         ]
     }
 };
 
 function addBandLine (ctx, scale, constraints, options) {
-    var yPos = scale.getPixelForValue(options.yValue),
+    var yPoses = [
+            scale.getPixelForValue(options.yValueMin),
+            scale.getPixelForValue(options.yValueMax)
+            ],
         bandLine = options.bandLine;
 
-    if (bandLine.type === 'dashed') {
-        for (var i = constraints.start; i < constraints.stop; i = i + 6) {
-            drawBandLine(ctx, yPos, i, i + 4, bandLine.stroke, bandLine.colour);
-        }
-    } else {
-        drawBandLine(ctx, yPos, constraints.start, constraints.stop, bandLine.stroke, bandLine.colour);
-    }
-
-    if(bandLine.label !== undefined && bandLine.label.length > 0) {
-
-        addBandLineLabel(
-            ctx,
-            bandLine,
-            {
-                'x': constraints.start,
-                'y': constraints.top - options.bandLine.fontSize * 2
+    yPoses.forEach(function(yPos) {
+        if (bandLine.type === 'dashed') {
+            for (var i = constraints.start; i < constraints.stop; i = i + 6) {
+                drawBandLine(ctx, yPos, i, i + 4, bandLine.stroke, bandLine.colour);
             }
-        );
-    }
+        } else {
+            drawBandLine(ctx, yPos, constraints.start, constraints.stop, bandLine.stroke, bandLine.colour);
+        }
+
+        if(bandLine.label !== undefined && bandLine.label.length > 0) {
+
+            addBandLineLabel(
+                ctx,
+                bandLine,
+                {
+                    'x': constraints.start,
+                    'y': constraints.top - options.bandLine.fontSize * 2
+                }
+            );
+        }
+    });
 }
 
 function drawBandLine (ctx, yPos, start, stop, stroke, colour) {
@@ -95,19 +104,22 @@ function addBandLineLabel (ctx, options, position) {
 }
 
 function pluginBandOptionsHaveBeenSet (bandOptions) {
-    return (typeof bandOptions.belowThresholdColour === 'object' && bandOptions.belowThresholdColour.length > 0 && typeof bandOptions.yValue === 'number');
+    return (typeof bandOptions.belowMinThresholdColour === 'object' && bandOptions.belowMinThresholdColour.length > 0 && typeof bandOptions.yValueMin === 'number');
 }
 
-function calculateGradientFill (ctx, scale, height, baseColor, gradientColor, value) {
-    var yPos = scale.getPixelForValue(value),
-        grd = ctx.createLinearGradient(0, height, 0, 0),
-        gradientStop = 1 - (yPos / height);
-
+function calculateGradientFill (ctx, scale, height, baseColor, minGradientColor, maxGradientColor, minValue, maxValue) {
+    var yPosMin = scale.getPixelForValue(minValue),
+        gradientStopMin = 1 - (yPosMin / height),
+        yPosMax = scale.getPixelForValue(maxValue),
+        gradientStopMax = 1 - (yPosMax / height),
+        grd = ctx.createLinearGradient(0, height, 0, 0);
     try {
-        grd.addColorStop(0, gradientColor);
-        grd.addColorStop(gradientStop, gradientColor);
-        grd.addColorStop(gradientStop, baseColor);
-        grd.addColorStop(1.00, baseColor);
+        grd.addColorStop(0, minGradientColor);
+        grd.addColorStop(gradientStopMin, minGradientColor);
+        grd.addColorStop(gradientStopMin, baseColor);
+        grd.addColorStop(gradientStopMax, baseColor);
+        grd.addColorStop(gradientStopMax, maxGradientColor);
+        grd.addColorStop(1.00, maxGradientColor);
 
         return grd;
     } catch (e) {
@@ -131,7 +143,7 @@ var BandsPlugin = Chart.PluginBase.extend({
         isPluginSupported(chartInstance.config.type);
         // capture the baseColors so we can reapply on resize.
         for (var i = 0; i < chartInstance.chart.config.data.datasets.length; i++) {
-            baseColor[i] = chartInstance.chart.config.data.datasets[i][colourProfile]; 
+            baseColor[i] = chartInstance.chart.config.data.datasets[i][colourProfile];
         }
     },
 
@@ -153,9 +165,12 @@ var BandsPlugin = Chart.PluginBase.extend({
                                         chartInstance.scales['y-axis-0'],
                                         chartInstance.chart.height,
                                         baseColor[i],
-                                        bandOptions.belowThresholdColour[i],
-                                        bandOptions.yValue
+                                        bandOptions.belowMinThresholdColour[i],
+                                        bandOptions.aboveMaxThresholdColour[i],
+                                        bandOptions.yValueMin,
+                                        bandOptions.yValueMax || chartInstance.scales['y-axis-0'].end
                                     );
+                console.log("aaa");
                 chartInstance.chart.config.data.datasets[i][colourProfile] = fill;
             }
         } else {
@@ -172,7 +187,7 @@ var BandsPlugin = Chart.PluginBase.extend({
         node = chartInstance.chart.ctx.canvas;
         bandOptions = helpers.configMerge(Chart.Bands.defaults.bands, chartInstance.options.bands);
 
-        if (typeof bandOptions.yValue === 'number') {
+        if (typeof bandOptions.yValueMin === 'number') {
             addBandLine(
                 node.getContext("2d"),
                 chartInstance.scales['y-axis-0'],
@@ -185,7 +200,7 @@ var BandsPlugin = Chart.PluginBase.extend({
             );
 
         } else {
-            console.warn('ConfigError: The Chart.Bands.js plugin config requires a yValue');
+            console.warn('ConfigError: The Chart.Bands.js plugin config requires a yValueMin');
         }
     }
 });
