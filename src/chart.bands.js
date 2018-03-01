@@ -1,7 +1,7 @@
 var Chart, helpers, supportedTypes, addLegendColourHelper, isSupported, colourProfile, defaultOptions;
 
 //setup
-Chart = require('Chart');
+Chart = require('chart.js');
 Chart = typeof(Chart) === 'function' ? Chart : window.Chart;
 helpers = Chart.helpers;
 isSupported = true;
