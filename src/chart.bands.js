@@ -1,4 +1,4 @@
-var Chart, helpers, supportedTypes, addLegendColourHelper, isSupported, colourProfile, defaultOptions;
+var Chart, helpers, supportedTypes, addLegendColourHelper, isSupported, colourProfile, defaultOptions, baseColor;
 
 //setup
 Chart = require('chart.js');
@@ -20,7 +20,8 @@ Chart.Bands = Chart.Bands || {};
 
 defaultOptions = Chart.Bands.defaults = {
     bands: {
-        yValue: false,
+        yValueMin: false,
+        yValueMax: false,
         bandLine: {
             stroke: 0.01,
             colour: 'rgba(0, 0, 0, 1.000)',
@@ -32,26 +33,35 @@ defaultOptions = Chart.Bands.defaults = {
             xPos: 'top',
             yPos: 'left'
         },
-        belowThresholdColour: [
+        belowMinThresholdColour: [
+            'rgba(0, 255, 0, 1.000)'
+        ],
+        aboveMaxThresholdColour: [
             'rgba(0, 255, 0, 1.000)'
         ]
     }
 };
 
 function addBandLine (ctx, scale, constraints, options) {
-    var yPos = scale.getPixelForValue(options.yValue);
+    var yPoses = [
+        scale.getPixelForValue(options.yValueMin),
+        scale.getPixelForValue(options.yValueMax)
+    ]
     var bandLine = options.bandLine;
     var dashLength = 8;
     var padding = 0;
-    var lineStartPos = constraints.start + padding;
-    var lineStopPos = constraints.stop + padding;
 
-    var lineDrawer = bandLine.type === 'dashed' ? drawDashedLine : drawLine;
+    yPoses.forEach(function(yPos) {
+        var lineStartPos = constraints.start + padding;
+        var lineStopPos = constraints.stop + padding;
 
-    lineDrawer(ctx, yPos + (bandLine.stroke / 4), lineStartPos, lineStopPos, bandLine.stroke, bandLine.colour, dashLength);
-    if (bandLine.label) {
-        addBandLineLabel(ctx, constraints, options.bandLine, dashLength, lineDrawer);
-    }
+        var lineDrawer = bandLine.type === 'dashed' ? drawDashedLine : drawLine;
+
+        lineDrawer(ctx, yPos + (bandLine.stroke / 4), lineStartPos, lineStopPos, bandLine.stroke, bandLine.colour, dashLength);
+        if (bandLine.label) {
+            addBandLineLabel(ctx, constraints, options.bandLine, dashLength, lineDrawer);
+        }
+    });
 }
 
 function addBandLineLabel(ctx, constraints, bandLine, dashLength, lineDrawer) {
@@ -93,19 +103,22 @@ function drawLine (ctx, y, x0, x1, lineWidth, colour) {
 }
 
 function pluginBandOptionsHaveBeenSet (bandOptions) {
-    return (typeof bandOptions.belowThresholdColour === 'object' && bandOptions.belowThresholdColour.length > 0 && typeof bandOptions.yValue === 'number');
+    return (typeof bandOptions.belowMinThresholdColour === 'object' && bandOptions.belowMinThresholdColour.length > 0 && typeof bandOptions.yValueMin === 'number');
 }
 
-function calculateGradientFill (ctx, scale, height, baseColor, gradientColor, value) {
-    var yPos = scale.getPixelForValue(value),
-        grd = ctx.createLinearGradient(0, height, 0, 0),
-        gradientStop = 1 - (yPos / height);
-
+function calculateGradientFill (ctx, scale, height, baseColor, minGradientColor, maxGradientColor, minValue, maxValue) {
+    var yPosMin = scale.getPixelForValue(minValue),
+        gradientStopMin = 1 - (yPosMin / height),
+        yPosMax = scale.getPixelForValue(maxValue),
+        gradientStopMax = 1 - (yPosMax / height),
+        grd = ctx.createLinearGradient(0, height, 0, 0);
     try {
-        grd.addColorStop(0, gradientColor);
-        grd.addColorStop(gradientStop, gradientColor);
-        grd.addColorStop(gradientStop, baseColor);
-        grd.addColorStop(1.00, baseColor);
+        grd.addColorStop(0, minGradientColor);
+        grd.addColorStop(gradientStopMin, minGradientColor);
+        grd.addColorStop(gradientStopMin, baseColor);
+        grd.addColorStop(gradientStopMax, baseColor);
+        grd.addColorStop(gradientStopMax, maxGradientColor);
+        grd.addColorStop(1.00, maxGradientColor);
 
         return grd;
     } catch (e) {
@@ -151,8 +164,10 @@ var BandsPlugin = Chart.PluginBase.extend({
                         chartInstance.scales['y-axis-0'],
                         chartInstance.chart.height,
                         baseColor[i],
-                        bandOptions.belowThresholdColour[i],
-                        bandOptions.yValue
+                        bandOptions.belowMinThresholdColour[i],
+                        bandOptions.aboveMaxThresholdColour[i],
+                        bandOptions.yValueMin,
+                        bandOptions.yValueMax || chartInstance.scales['y-axis-0'].end
                     );
                     chartInstance.chart.config.data.datasets[i][colourProfile] = fill;
                 }
@@ -171,7 +186,7 @@ var BandsPlugin = Chart.PluginBase.extend({
         node = chartInstance.chart.ctx.canvas;
         bandOptions = helpers.configMerge(Chart.Bands.defaults.bands, chartInstance.options.bands);
 
-        if (typeof bandOptions.yValue === 'number') {
+        if (typeof bandOptions.yValueMin === 'number') {
             addBandLine(
                 node.getContext("2d"),
                 chartInstance.scales['y-axis-0'],
@@ -179,13 +194,13 @@ var BandsPlugin = Chart.PluginBase.extend({
                     'top': chartInstance.chartArea.top,
                     'bottom': chartInstance.boxes[2].bottom,
                     'start': chartInstance.chartArea.left,
-                    'stop': chartInstance.chartArea.right,
+                    'stop': chartInstance.chartArea.right
                 },
                 bandOptions
             );
 
         } else {
-            console.warn('ConfigError: The Chart.Bands.js plugin config requires a yValue');
+            console.warn('ConfigError: The Chart.Bands.js plugin config requires a yValueMin');
         }
     }
 });

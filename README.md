@@ -18,7 +18,8 @@ To configure the bands plugin, you can simply add new config options to your cha
 {
 	// Container for pan options
     bands: {
-        yValue: 10   ,                // The threshold value on the yAxis (default is false)
+        yValueMin: 10   ,             // The Min threshold value on the yAxis (default is false)
+        yValueMax: 30   ,             // The Max threshold value on the yAxis (default is false)
         bandLine: { 	              // The display properties of the threshold line
             stroke: 0.01, 
             colour: 'rgba(0, 0, 0, 1.000)',
@@ -28,7 +29,10 @@ To configure the bands plugin, you can simply add new config options to your cha
             fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
             fontStyle: 'normal'
         },
-        belowThresholdColour: [      // An array of the colors that describes the below threshold colour to use the above threshold color is inherited from the dataset
+        belowMinThresholdColour: [      // An array of the colors that describes the below Min threshold colour to use the below min threshold color is inherited from the dataset
+            'rgba(0, 255, 0, 1.000)'
+        ],
+        aboveMaxThresholdColour: [      // An array of the colors that describes the above Max threshold colour to use the above max threshold color is inherited from the dataset
             'rgba(0, 255, 0, 1.000)'
         ]
     }
