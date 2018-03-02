@@ -18712,19 +18712,17 @@ function pluginBandOptionsHaveBeenSet (bandOptions) {
     return (typeof bandOptions.belowMinThresholdColour === 'object' && bandOptions.belowMinThresholdColour.length > 0 && typeof bandOptions.yValueMin === 'number');
 }
 
-function calculateGradientFill (ctx, scale, height, baseColor, minGradientColor, maxGradientColor, minValue, maxValue) {
-    var yPosMin = scale.getPixelForValue(minValue),
-        gradientStopMin = 1 - (yPosMin / height),
-        yPosMax = scale.getPixelForValue(maxValue),
-        gradientStopMax = 1 - (yPosMax / height),
-        grd = ctx.createLinearGradient(0, height, 0, 0);
+function calculateGradientFill (ctx, scale, chartLeft, chartRight, colorArray, data) {
+    var grd = ctx.createLinearGradient(Math.ceil(chartLeft), 0, chartRight, 0);
+
     try {
-        grd.addColorStop(0, minGradientColor);
-        grd.addColorStop(gradientStopMin, minGradientColor);
-        grd.addColorStop(gradientStopMin, baseColor);
-        grd.addColorStop(gradientStopMax, baseColor);
-        grd.addColorStop(gradientStopMax, maxGradientColor);
-        grd.addColorStop(1.00, maxGradientColor);
+        grd.addColorStop(0, colorArray[1]);
+
+        for (var i = 1; i < colorArray.length - 1; ++i) {
+            grd.addColorStop(i / (colorArray.length - 1), colorArray[i]);
+            grd.addColorStop(i / (colorArray.length - 1), colorArray[i + 1]);
+        }
+        grd.addColorStop(1, colorArray[colorArray.length - 1]);
 
         return grd;
     } catch (e) {
@@ -18754,28 +18752,38 @@ var BandsPlugin = Chart.PluginBase.extend({
 
     afterScaleUpdate: function (chartInstance) {
         var node,
-            bandOptions,
-            fill;
+            bandOptions;
 
         if(isSupported === false) { return ; }
 
         node = chartInstance.chart.ctx.canvas;
         bandOptions = helpers.configMerge(Chart.Bands.defaults.bands, chartInstance.options.bands);
         if (pluginBandOptionsHaveBeenSet(bandOptions)) {
-            for (var i = 0; i < chartInstance.chart.config.data.datasets.length; i++) {
+            for (var datasetIndex = 0; datasetIndex < chartInstance.chart.config.data.datasets.length; datasetIndex++) {
                 // Don't reapply the fill if it has already been applied (in which case it will no longer be of type String
-                if (typeof baseColor[i] === 'string') {
-                    fill = calculateGradientFill(
+                var dataset = chartInstance.chart.config.data.datasets[datasetIndex]
+                var colourArray = []
+                if (typeof baseColor[datasetIndex] === 'string' & dataset.hasBand == true) {
+                    for (var dataIndex = 0; dataIndex < dataset.data.length; ++dataIndex) {
+                        var value = dataset.data[dataIndex]
+                        if (value <= bandOptions.yValueMin) {
+                            colourArray.push(bandOptions.belowMinThresholdColour[datasetIndex])
+                        } else if (value > bandOptions.yValueMin && value < bandOptions.yValueMax) {
+                            colourArray.push(baseColor[datasetIndex])
+                        } else {
+                            colourArray.push(bandOptions.aboveMaxThresholdColour[datasetIndex])
+                        }
+                    }
+
+                    console.log(chartInstance)
+                    dataset[colourProfile] = calculateGradientFill(
                         node.getContext("2d"),
                         chartInstance.scales['y-axis-0'],
-                        chartInstance.chart.height,
-                        baseColor[i],
-                        bandOptions.belowMinThresholdColour[i],
-                        bandOptions.aboveMaxThresholdColour[i],
-                        bandOptions.yValueMin,
-                        bandOptions.yValueMax || chartInstance.scales['y-axis-0'].end
+                        chartInstance.chartArea.left,
+                        chartInstance.chartArea.right,
+                        colourArray,
+                        dataset.data
                     );
-                    chartInstance.chart.config.data.datasets[i][colourProfile] = fill;
                 }
             }
         } else {
