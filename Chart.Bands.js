@@ -18775,7 +18775,6 @@ var BandsPlugin = Chart.PluginBase.extend({
                         }
                     }
 
-                    console.log(chartInstance)
                     dataset[colourProfile] = calculateGradientFill(
                         node.getContext("2d"),
                         chartInstance.scales['y-axis-0'],
