@@ -159,12 +159,12 @@ var BandsPlugin = Chart.PluginBase.extend({
                 if (typeof baseColor[datasetIndex] === 'string' & dataset.hasBand == true) {
                     for (var dataIndex = 0; dataIndex < dataset.data.length; ++dataIndex) {
                         var value = dataset.data[dataIndex]
-                        if (value <= bandOptions.yValueMin) {
+                        if (value < bandOptions.yValueMin && value !== 0) {
                             colourArray.push(bandOptions.belowMinThresholdColour[datasetIndex])
-                        } else if (value > bandOptions.yValueMin && value < bandOptions.yValueMax) {
-                            colourArray.push(baseColor[datasetIndex])
-                        } else {
+                        } else if (value > bandOptions.yValueMax) {
                             colourArray.push(bandOptions.aboveMaxThresholdColour[datasetIndex])
+                        } else {
+                            colourArray.push(baseColor[datasetIndex])
                         }
                     }
 
