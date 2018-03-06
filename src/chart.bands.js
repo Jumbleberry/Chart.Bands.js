@@ -159,7 +159,7 @@ var BandsPlugin = Chart.PluginBase.extend({
                 if (typeof baseColor[datasetIndex] === 'string' & dataset.hasBand == true) {
                     for (var dataIndex = 0; dataIndex < dataset.data.length; ++dataIndex) {
                         var value = dataset.data[dataIndex]
-                        if (value < bandOptions.yValueMin && value !== 0) {
+                        if (value < bandOptions.yValueMin && value != 0.00) {
                             colourArray.push(bandOptions.belowMinThresholdColour[datasetIndex])
                         } else if (value > bandOptions.yValueMax) {
                             colourArray.push(bandOptions.aboveMaxThresholdColour[datasetIndex])
